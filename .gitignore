@@ -4,3 +4,6 @@ node_modules/
 venv/
 .venv/
 .env
+data/*.csv
+data/*.joblib
+.pytest_cache/
