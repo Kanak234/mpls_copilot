@@ -1,0 +1,46 @@
+name: Repository Guard
+
+# Conservative repository-level validation. It only reads source and parses code.
+# No tracked file is deleted, no application behavior is invoked, and no network
+# target is contacted by this workflow.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      # Python syntax validation does not import project dependencies or execute
+      # application code, so it remains safe for heterogeneous repositories.
+      - name: Validate Python syntax
+        shell: bash
+        run: |
+          if find . -type f -name '*.py' -not -path './.git/*' | grep -q .; then
+            python3 -m compileall -q .
+          fi
+
+      # JavaScript syntax validation catches parser-level regressions without
+      # launching browsers, servers, or extension hosts.
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do node --check "$file"; done             < <(find . -type f -name '*.js' -not -path './.git/*' -not -path '*/node_modules/*' -print0)
+
+      # Rust compile validation uses only the repository's declared Cargo workspace.
+      - name: Validate Rust workspace
+        shell: bash
+        run: |
+          if [ -f Cargo.toml ]; then cargo check --workspace --all-targets; fi
+
+      # Shell parsing is intentionally non-executing.
+      - name: Validate shell syntax
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do bash -n "$file"; done             < <(find . -type f \( -name '*.sh' -o -name '*.bash' \) -not -path './.git/*' -print0)
